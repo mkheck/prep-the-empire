@@ -1,8 +1,11 @@
 package com.thehecklers.theempire;
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.repository.reactive.ReactiveCrudRepository
@@ -10,8 +13,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.reactive.function.server.body
-import org.springframework.web.reactive.function.server.router
+import org.springframework.web.reactive.function.server.*
+import org.springframework.web.reactive.function.server.ServerResponse.ok
 import reactor.core.publisher.Flux
 import reactor.core.publisher.toFlux
 import java.util.*
@@ -62,12 +65,20 @@ class DataLoader(private val repo: ShipRepository) {
 @Component
 class ShipRouter(private val repo: ShipRepository) {
     @Bean
-    fun shipRouting() = router {
-        GET("/ships") { req -> ok().body(repo.findAll()) }
-        GET("/ships/{id}") { req -> ok().body(repo.findById(req.pathVariable("id"))) }
-        // How to add @RequestParam(defaultValue = "Martok") to following handler ???
-        GET("/search") { req -> ok().body(repo.findShipByCaptain(req.queryParam("captain"))) }
+    fun crouter() = coRouter {
+        GET("/ships", ::getAllShips)
+        GET("/ships/{id}", ::getShipById)
+        GET("/search", ::getShipByCaptain)
     }
+
+    suspend fun getAllShips(req: ServerRequest) = ok().body(repo.findAll()).awaitSingle()
+
+    suspend fun getShipById(req: ServerRequest) = ok()
+        .body(repo.findById(req.pathVariable("id"))).awaitSingle()
+
+    // How to add @RequestParam(defaultValue = "Martok") to following handler ???
+    suspend fun getShipByCaptain(req: ServerRequest) = ok()
+        .body((repo.findShipByCaptain(req.queryParam("captain")))).awaitSingle()
 }
 
 interface ShipRepository : ReactiveCrudRepository<Ship, String> {
