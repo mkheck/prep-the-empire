@@ -1,23 +1,26 @@
 package com.thehecklers.theempire;
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.reactive.awaitSingle
+import com.fasterxml.jackson.databind.ObjectMapper
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.collect
+import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.data.annotation.Id
+import org.springframework.data.mongodb.core.*
 import org.springframework.data.mongodb.core.mapping.Document
-import org.springframework.data.repository.reactive.ReactiveCrudRepository
+import org.springframework.data.mongodb.core.query.Criteria.where
+import org.springframework.data.mongodb.core.query.Query.query
+import org.springframework.data.mongodb.core.query.isEqualTo
 import org.springframework.stereotype.Component
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.reactive.function.server.*
+import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse.ok
-import reactor.core.publisher.Flux
-import reactor.core.publisher.toFlux
-import java.util.*
+import org.springframework.web.reactive.function.server.bodyAndAwait
+import org.springframework.web.reactive.function.server.bodyValueAndAwait
+import org.springframework.web.reactive.function.server.coRouter
 import javax.annotation.PostConstruct
 import kotlin.random.Random
 
@@ -30,8 +33,9 @@ fun main(args: Array<String>) {
 
 @Component
 class DataLoader(private val repo: ShipRepository) {
+
     @PostConstruct
-    fun loadShips() {
+    suspend fun loadShips() {
         val ships = listOf(
             "Ch'Tang",
             "Gr'oth",
@@ -47,17 +51,18 @@ class DataLoader(private val repo: ShipRepository) {
         val captains = listOf("Martok", "Koloth", "Kurn", "Kaybok", "Nu'Daq", "Lurkan", "Kargan", "K'Temoc", "Tanas")
         val rnd = Random
 
-        repo.deleteAll().thenMany(
-            (0..999).toFlux()
-        )
-            .map {
+        repo.deleteAll()
+
+        for (x in 0..999) {
+            repo.insert(
                 Ship(
                     name = ships.get(rnd.nextInt(ships.size)),
                     captain = captains.get(rnd.nextInt(captains.size))
                 )
-            }
-            .flatMap { repo.save(it) }
-            .subscribe { println(it) }
+            )
+        }
+
+        repo.findAll().collect { println(it) }
 
     }
 }
@@ -71,18 +76,72 @@ class ShipRouter(private val repo: ShipRepository) {
         GET("/search", ::getShipByCaptain)
     }
 
-    suspend fun getAllShips(req: ServerRequest) = ok().body(repo.findAll()).awaitSingle()
+    suspend fun getAllShips(req: ServerRequest) = ok().bodyAndAwait(repo.findAll())
 
     suspend fun getShipById(req: ServerRequest) = ok()
-        .body(repo.findById(req.pathVariable("id"))).awaitSingle()
+        .bodyValueAndAwait(repo.findOne(req.pathVariable("id")))
 
-    // How to add @RequestParam(defaultValue = "Martok") to following handler ???
     suspend fun getShipByCaptain(req: ServerRequest) = ok()
-        .body((repo.findShipByCaptain(req.queryParam("captain").orElse("Martok")))).awaitSingle()
+        .bodyAndAwait((repo.findShipByCaptain(req.queryParam("captain").orElse("Martok"))))
 }
 
-interface ShipRepository : ReactiveCrudRepository<Ship, String> {
-    fun findShipByCaptain(captain: String): Flux<Ship>
+@Component
+class ShipRepository(private val mongo: ReactiveFluentMongoOperations, private val om: ObjectMapper) {
+    suspend fun count() = mongo.query<Ship>()
+        .awaitCount()
+
+    fun findAll() = mongo.query<Ship>()
+        .flow()
+
+    fun findShipByCaptain(captain: String) = mongo.query<Ship>()
+        .matching(query(where("captain").isEqualTo(captain)))
+        .flow()
+
+    suspend fun findOne(id: String) = mongo.query<Ship>()
+        .matching(query(where("id").isEqualTo(id)))
+        .awaitOne()
+
+    suspend fun deleteAll() {
+        mongo.remove<Ship>()
+            .allAndAwait()
+    }
+
+    suspend fun insert(ship: Ship) = mongo.insert<Ship>()
+        .oneAndAwait(ship)
+
+    suspend fun update(ship: Ship) = mongo.update<Ship>()
+        .replaceWith(ship).asType<Ship>()
+        .findReplaceAndAwait()!!
+
+/*    suspend fun init() {
+        val ships = listOf(
+            "Ch'Tang",
+            "Gr'oth",
+            "Hegh'ta",
+            "M'Char",
+            "Maht-H'a",
+            "Ning'tao",
+            "Pagh",
+            "T'Ong",
+            "Vor'nak",
+            "Ya'Vang"
+        )
+        val captains = listOf("Martok", "Koloth", "Kurn", "Kaybok", "Nu'Daq", "Lurkan", "Kargan", "K'Temoc", "Tanas")
+        val rnd = Random
+
+        deleteAll()
+
+        for (x in 0..999) {
+            insert(
+                Ship(
+                    name = ships.get(rnd.nextInt(ships.size)),
+                    captain = captains.get(rnd.nextInt(captains.size))
+                )
+            )
+        }
+
+        findAll().collect { println(it) }
+    }*/
 }
 
 @Document
