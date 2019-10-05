@@ -66,12 +66,12 @@ class ShipRouter(private val repo: ShipRepository) {
         GET("/ships") { req -> ok().body(repo.findAll()) }
         GET("/ships/{id}") { req -> ok().body(repo.findById(req.pathVariable("id"))) }
         // How to add @RequestParam(defaultValue = "Martok") to following handler ???
-        GET("/search") { req -> ok().body(repo.findShipByCaptain(req.queryParam("captain"))) }
+        GET("/search") { req -> ok().body(repo.findShipByCaptain(req.queryParam("captain").orElse("Martok"))) }
     }
 }
 
 interface ShipRepository : ReactiveCrudRepository<Ship, String> {
-    fun findShipByCaptain(captain: Optional<String>): Flux<Ship>
+    fun findShipByCaptain(captain: String): Flux<Ship>
 }
 
 @Document
