@@ -31,10 +31,10 @@ internal class ExternalAPITest {
     @BeforeEach
     fun setUp() {
         Mockito.`when`(repo.findAll()).thenReturn(Flux.just(ship1, ship2))
-        Mockito.`when`(repo.findById(ship1.id!!)).thenReturn(Mono.just(ship1))
-        Mockito.`when`(repo.findById(ship2.id!!)).thenReturn(Mono.just(ship2))
-        Mockito.`when`(repo.findShipByCaptain(ship1.captain)).thenReturn(Flux.just(ship1))
-        Mockito.`when`(repo.findShipByCaptain(ship2.captain)).thenReturn(Flux.just(ship2))
+        Mockito.`when`(repo.findOne(ship1.id!!)).thenReturn(ship1)
+        Mockito.`when`(repo.findOne(ship2.id!!)).thenReturn(ship2)
+        Mockito.`when`(repo.findShipByCaptain(ship1.captain)).thenReturn(Flux.just(ship1).asFlow())
+        Mockito.`when`(repo.findShipByCaptain(ship2.captain)).thenReturn(Flux.just(ship2).asFlow())
     }
 
     @Test

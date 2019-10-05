@@ -1,9 +1,7 @@
 package com.thehecklers.theempire;
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.async
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -35,7 +33,7 @@ fun main(args: Array<String>) {
 class DataLoader(private val repo: ShipRepository) {
 
     @PostConstruct
-    suspend fun loadShips() {
+    fun loadShips() {
         val ships = listOf(
             "Ch'Tang",
             "Gr'oth",
@@ -51,19 +49,20 @@ class DataLoader(private val repo: ShipRepository) {
         val captains = listOf("Martok", "Koloth", "Kurn", "Kaybok", "Nu'Daq", "Lurkan", "Kargan", "K'Temoc", "Tanas")
         val rnd = Random
 
-        repo.deleteAll()
+        GlobalScope.launch {
+            repo.deleteAll()
 
-        for (x in 0..999) {
-            repo.insert(
-                Ship(
-                    name = ships.get(rnd.nextInt(ships.size)),
-                    captain = captains.get(rnd.nextInt(captains.size))
+            for (x in 0..999) {
+                repo.insert(
+                    Ship(
+                        name = ships.get(rnd.nextInt(ships.size)),
+                        captain = captains.get(rnd.nextInt(captains.size))
+                    )
                 )
-            )
+            }
+
+            repo.findAll().collect { println(it) }
         }
-
-        repo.findAll().collect { println(it) }
-
     }
 }
 
@@ -112,36 +111,6 @@ class ShipRepository(private val mongo: ReactiveFluentMongoOperations, private v
     suspend fun update(ship: Ship) = mongo.update<Ship>()
         .replaceWith(ship).asType<Ship>()
         .findReplaceAndAwait()!!
-
-/*    suspend fun init() {
-        val ships = listOf(
-            "Ch'Tang",
-            "Gr'oth",
-            "Hegh'ta",
-            "M'Char",
-            "Maht-H'a",
-            "Ning'tao",
-            "Pagh",
-            "T'Ong",
-            "Vor'nak",
-            "Ya'Vang"
-        )
-        val captains = listOf("Martok", "Koloth", "Kurn", "Kaybok", "Nu'Daq", "Lurkan", "Kargan", "K'Temoc", "Tanas")
-        val rnd = Random
-
-        deleteAll()
-
-        for (x in 0..999) {
-            insert(
-                Ship(
-                    name = ships.get(rnd.nextInt(ships.size)),
-                    captain = captains.get(rnd.nextInt(captains.size))
-                )
-            )
-        }
-
-        findAll().collect { println(it) }
-    }*/
 }
 
 @Document
