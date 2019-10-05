@@ -78,11 +78,11 @@ class ShipRouter(private val repo: ShipRepository) {
 
     // How to add @RequestParam(defaultValue = "Martok") to following handler ???
     suspend fun getShipByCaptain(req: ServerRequest) = ok()
-        .body((repo.findShipByCaptain(req.queryParam("captain")))).awaitSingle()
+        .body((repo.findShipByCaptain(req.queryParam("captain").orElse("Martok")))).awaitSingle()
 }
 
 interface ShipRepository : ReactiveCrudRepository<Ship, String> {
-    fun findShipByCaptain(captain: Optional<String>): Flux<Ship>
+    fun findShipByCaptain(captain: String): Flux<Ship>
 }
 
 @Document
