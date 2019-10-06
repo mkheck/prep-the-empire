@@ -38,6 +38,7 @@ dependencies {
 		exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
 	}
 	testImplementation("io.projectreactor:reactor-test")
+//	testImplementation("com.ninja-squad:springmockk:1.1.3")
 }
 
 tasks.withType<Test> {

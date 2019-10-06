@@ -1,21 +1,18 @@
 package com.thehecklers.theempire
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.launch
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-
 import org.mockito.Mockito
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
-import org.springframework.test.web.reactive.server.returnResult
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.test.StepVerifier
-import java.util.*
+import org.springframework.test.web.reactive.server.expectBody
+import org.springframework.test.web.reactive.server.expectBodyList
 
 @WebFluxTest(ShipRouter::class)
 internal class ExternalAPITest {
@@ -30,51 +27,47 @@ internal class ExternalAPITest {
 
     @BeforeEach
     fun setUp() {
-        Mockito.`when`(repo.findAll()).thenReturn(Flux.just(ship1, ship2))
-        Mockito.`when`(repo.findOne(ship1.id!!)).thenReturn(ship1)
-        Mockito.`when`(repo.findOne(ship2.id!!)).thenReturn(ship2)
-        Mockito.`when`(repo.findShipByCaptain(ship1.captain)).thenReturn(Flux.just(ship1).asFlow())
-        Mockito.`when`(repo.findShipByCaptain(ship2.captain)).thenReturn(Flux.just(ship2).asFlow())
+        Mockito.`when`(repo.findAll()).thenReturn(listOf(ship1, ship2).asFlow())
+
+        Mockito.`when`(repo.findShipByCaptain(ship1.captain)).thenReturn(listOf(ship1).asFlow())
+        Mockito.`when`(repo.findShipByCaptain(ship2.captain)).thenReturn(listOf(ship2).asFlow())
+
+        GlobalScope.launch {
+            Mockito.`when`(repo.findOne(ship1.id!!)).thenReturn(ship1)
+            Mockito.`when`(repo.findOne(ship2.id!!)).thenReturn(ship2)
+        }
     }
 
     @Test
     fun `Get all 🚀s`() {
-        StepVerifier.create(client.get()
+        client.get()
             .uri("/ships")
             .exchange()
             .expectStatus().isOk
             .expectHeader().contentType(MediaType.APPLICATION_JSON)
-            .returnResult<Ship>()
-            .responseBody)
-            .expectNext(ship1)
-            .expectNext(ship2)
-            .verifyComplete()
+            .expectBodyList<Ship>()
+            .contains(ship1, ship2)
     }
 
     @Test
     fun `Get 🚀 by 🆔`() {
-        StepVerifier.create(client.get()
+        client.get()
             .uri("/ships/{id}", ship2.id)
             .exchange()
             .expectStatus().isOk
             .expectHeader().contentType(MediaType.APPLICATION_JSON)
-            .returnResult<Ship>()
-            .responseBody)
-            .expectNext(ship2)
-            .verifyComplete()
+            .expectBody<Ship>()
+            .isEqualTo(ship2)
     }
 
     @Test
     fun `Get 🚀s with 👩‍✈️`() {
-        StepVerifier.create(client.get()
+        client.get()
             .uri("/search?captain={captain}", ship1.captain)
             .exchange()
             .expectStatus().isOk
             .expectHeader().contentType(MediaType.APPLICATION_JSON)
-            .returnResult<Ship>()
-            .responseBody
-            .take(1))
-            .expectNext(ship1)
-            .verifyComplete()
+            .expectBodyList<Ship>()
+            .contains(ship1)
     }
 }

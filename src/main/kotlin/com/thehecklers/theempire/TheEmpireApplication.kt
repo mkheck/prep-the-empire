@@ -1,9 +1,9 @@
 package com.thehecklers.theempire;
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import kotlinx.coroutines.*
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.collect
-import org.springframework.boot.CommandLineRunner
+import kotlinx.coroutines.launch
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
@@ -85,7 +85,7 @@ class ShipRouter(private val repo: ShipRepository) {
 }
 
 @Component
-class ShipRepository(private val mongo: ReactiveFluentMongoOperations, private val om: ObjectMapper) {
+class ShipRepository(private val mongo: ReactiveFluentMongoOperations) {
     suspend fun count() = mongo.query<Ship>()
         .awaitCount()
 
